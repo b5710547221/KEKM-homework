@@ -176,7 +176,6 @@ vehicle_type(high, advance).
 vehicle_type(low, basic).
 vehicle_type(medium, basic).
 
-
 patient(somchai).
 patient(fongchan).
 patient(manmuang).
@@ -204,13 +203,155 @@ water_level_risk(100, 1000, high).
 % -----------------
 
 %rule:1
-diagnose(V, W, X, Y):- disease_symptom(Y, X), disease_symptom(Y, V), disease_symptom(Y, W), disease(Y).
-diagnose(V, X, Y):- disease_symptom(Y, X), disease_symptom(Y, V), disease(Y).
-diagnose(X, Y):- disease_symptom(Y, X), disease(Y).
+diagnose(V, W, X, Y):- 
+    disease_symptom(Y, X),  
+    disease_symptom(Y, V),  
+    disease_symptom(Y, W),  
+    disease(Y).
+diagnose(V, X, Y):-  
+    disease_symptom(Y, X),  
+    disease_symptom(Y, V),  
+    disease(Y).
+diagnose(X, Y):-  
+    disease_symptom(Y, X),  
+    disease(Y).
 
 %rule:2
-suggest_vehicle_by_symptom(A,B):- risk_level(B, Y), vehicle_for(A,Y), vehicle(A).
+suggest_vehicle_by_symptom(A,B):-  
+    risk_level(B, Y),  
+    vehicle_for(A,Y),  
+    vehicle(A).
+
 %rule:3
-suggest_vehicle_by_disease(A,X):- disease_risk(X,B), disease(X), vehicle_for(A, B), vehicle(A).
+suggest_vehicle_by_disease(A,X):-  
+    disease_risk(X,B),  
+    disease(X),  
+    vehicle_for(A, B),  
+    vehicle(A).
+
 %rule:4
-suggest_hospital(W,X,B):- disease(X), doctor(A, X), doctor_response_in(A, B), hospital(B, P), hospital_disease_equipment(B, X), patient(W), patient_at(W, P).
+suggest_hospital(W,X,B):-  
+    disease(X),  
+    doctor(A, X),  
+    doctor_response_in(A, B),  
+    hospital(B, P),  
+    hospital_disease_equipment(B, X),  
+    patient(W),  
+    patient_at(W, P).
+
+
+% -----------------
+% Application Interface
+% -----------------
+
+% X = Patient Name
+% Y = Location Name
+% Z = String of list of symptoms
+% L = concrete list of symptoms
+% N = number of lists of symptoms
+% A = Disease
+% H = Highest risk symptom
+% B = Risk Level
+% C = Vehicle by symptom
+% D = Vehicle by disease
+% E = Hospital suggested
+
+%input = Location, Symptoms, ID_number
+%output = Symptom matched status, Risk level, Need to call doctor or not
+main :-
+    write('Welcome to Patient Resuce Expert System!! '), nl,
+    write('What is your name? (Need \'\' then . all lower cases) '), nl,
+    read(X),
+    write('Your name is '),
+    write(X), nl, 
+    patient(X),
+    write('What is your location? (Need \'\' then . all lower cases)'), nl,
+    read(Y),
+    write('Your location is '),
+    write(Y), nl,
+    location(Y),
+    assertz(patient_at(X,Y)),
+    write('What are your symptoms? You can put at most 3 of your most visible symptoms. (Need \'\' seperate by , then . all lower cases, space_bar is under_score) '), nl,
+    write('List of possible symptoms : coughing_blood,chest_pain,unintentional_weight_loss,fatigue,fever,night_sweats,chills,'), nl,
+    write('                            be_vomiting,pee_more_than_normal,pee_less_than_normal,see_foam_in_your_pee,have_swelling,particularly_of_the_ankles,puffiness_around_the_eyes,'), nl,
+    write('                            chest_pain,chest_pressure,nausea,sweating,vomiting,dizziness,anxiety,short_breathing,weakness,'), nl,
+    write('                            high_fever,headaches,pain_behind_the_eyes,severe_join,muscle_pain,fatigue,nausea,'), nl,
+    write('                            muscle_pain,cough,conjunctivitis,jaundice,swollen_ankles,chest_pain,meningitis,encephalitis,seizures'), nl,
+    read(Z),
+    atomic_list_concat(L,',',Z),
+    write('Your symptoms are '),
+    write(L), nl,
+    length(L,N),
+    %write(N), nl,
+    symptom_count(N,L,A),
+    write('Your problably have disease called '),
+    write(A), nl,
+    assertz(patient_record(X,A)),
+    %nth1(1,L,J), %get the first symptom
+    symptom_hi_risk(N,L,H), %get highest risk symptom
+    risk_level(H,B),
+    write('Your risk level is '), %use the higher risk symptom for safety
+    write(B), nl,
+    suggest_vehicle_by_symptom(C,H), %use the higher risk symptom for safety
+    write('By symptom, you need vehicle '),
+    write(C), nl,
+    suggest_vehicle_by_disease(D,A),
+    write('By disease, you need vehicle '),
+    write(D), nl,
+    suggest_hospital(X,A,E),
+    write('Suggested hospital is '),
+    write(E).
+
+% J, K, M are elements of list L
+
+symptom_count(1,L,A):- 
+    nth1(1,L,J),
+    diagnose(J,A).
+symptom_count(2,L,A):-
+    nth1(1,L,J),
+    nth1(2,L,K),
+    diagnose(J,K,A). 
+symptom_count(3,L,A):-
+    nth1(1,L,J),
+    nth1(2,L,K),
+    nth1(3,L,M),
+    diagnose(J,K,M,A).
+
+risk_no(1,low).
+risk_no(2,medium).
+risk_no(3,high).
+
+% H = Highest risk symptom
+
+symptom_hi_risk(1,L,H):- 
+    nth1(1,L,H).
+symptom_hi_risk(2,L,H):-
+    nth1(1,L,A),
+    nth1(2,L,B),
+    risk_level(A, X),
+    risk_level(B, Y),
+    risk_no(M, X),
+    risk_no(N, Y),
+    gt(M,N,R),
+    risk_no(R,S),
+    risk_level(H,S).  
+symptom_hi_risk(3,L,H):-
+    nth1(1,L,A),
+    nth1(2,L,B),
+    nth1(3,L,C),
+    risk_level(A, X),
+    risk_level(B, Y),
+    risk_level(C, Z),
+    risk_no(M, X),
+    risk_no(N, Y),
+    risk_no(P, Z),
+    gt(M,N,T),
+    gt(T,P,R),
+    risk_no(R,S),
+    risk_level(H,S).
+
+gt(M,N,R) :- 
+    R is max(M,N).
+
+list_diseases(Symptom, L) :-
+    findall(Disease, disease_symptom(Disease, Symptom), L).
